@@ -6,6 +6,8 @@ glancesApp.directive("sortableTh", function() {
         },
         link: function (scope, element, attrs) {
 
+            element.addClass('sortable');
+
             scope.$watch(function() {
                 return scope.sorter.column;
             }, function(newValue, oldValue) {
@@ -34,45 +36,4 @@ glancesApp.directive("sortableTh", function() {
             });
         }
     };
-});
-
-glancesApp.directive("glMonitorList", function() {
-    return {
-        restrict: 'AE',
-        scope: {
-            processes: '='
-        },
-        templateUrl: 'plugins/monitor.html',
-        controller: function() {
-
-        }
-    }
-})
-
-glancesApp.directive("glMonitorProcess", function() {
-    return {
-        restrict: 'AE',
-        require: "^glMonitorList",
-        templateUrl: 'components/monitor_process.html',
-        scope: {
-            process: '='
-        },
-        link: function(scope, element, attrs) {
-
-            count = scope.process.count;
-            countMin = scope.process.countmin;
-            countMax = scope.process.countmax;
-
-            if (count > 0) {
-                if ((countMin == null || count >= countMin) && (countMax == null || count <= countMax)) {
-                    scope.descriptionClass = 'ok';
-                } else {
-                    scope.descriptionClass = 'careful';
-                }
-            } else {
-                scope.descriptionClass = countMin == null ? 'ok' : 'critical';
-            }
-
-        }
-    }
 });

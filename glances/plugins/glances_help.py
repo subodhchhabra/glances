@@ -23,8 +23,7 @@ Help plugin.
 Just a stupid plugin to display the help screen.
 """
 
-# Import Glances libs
-from glances.core.glances_globals import appname, psutil_version, version
+from glances import __appname__, __version__, psutil_version
 from glances.plugins.glances_plugin import GlancesPlugin
 
 
@@ -34,7 +33,7 @@ class Plugin(GlancesPlugin):
 
     def __init__(self, args=None, config=None):
         """Init the plugin."""
-        GlancesPlugin.__init__(self, args=args)
+        super(Plugin, self).__init__(args=args)
 
         # Set the config instance
         self.config = config
@@ -51,7 +50,7 @@ class Plugin(GlancesPlugin):
         pass
 
     def generate_view_data(self):
-        self.view_data['version'] = '{0} {1}'.format(appname.title(), version)
+        self.view_data['version'] = '{0} {1}'.format(__appname__.title(), __version__)
         self.view_data['psutil_version'] = ' with PSutil {0}'.format(psutil_version)
 
         try:
@@ -88,9 +87,12 @@ class Plugin(GlancesPlugin):
         self.view_data['quit'] = msg_col2.format('q', 'Quit (Esc and Ctrl-C also work)')
         self.view_data['enable_disable_top_extends_stats'] = msg_col.format('e', 'Enable/disable top extended stats')
         self.view_data['enable_disable_short_processname'] = msg_col.format('/', 'Enable/disable short processes name')
+        self.view_data['enable_disable_irix'] = msg_col.format('0', 'Enable/disable Irix process CPU')
         self.view_data['enable_disable_docker'] = msg_col2.format('D', 'Enable/disable Docker stats')
         self.view_data['enable_disable_quick_look'] = msg_col.format('3', 'Enable/disable quick look plugin')
         self.view_data['show_hide_ip'] = msg_col2.format('I', 'Show/hide IP module')
+        self.view_data['diskio_iops'] = msg_col2.format('B', 'Count/rate for Disk I/O')
+        self.view_data['show_hide_top_menu'] = msg_col2.format('5', 'Show/hide top menu (QL, CPU, MEM, SWAP and LOAD)')
         self.view_data['edit_pattern_filter'] = 'ENTER: Edit the process filter pattern'
 
     def get_view_data(self, args=None):
@@ -156,11 +158,15 @@ class Plugin(GlancesPlugin):
         ret.append(self.curse_add_line(self.view_data['show_hide_help']))
         ret.append(self.curse_new_line())
         ret.append(self.curse_add_line(self.view_data['enable_disable_quick_look']))
-        ret.append(self.curse_add_line(self.view_data['quit']))
+        ret.append(self.curse_add_line(self.view_data['diskio_iops']))
         ret.append(self.curse_new_line())
         ret.append(self.curse_add_line(self.view_data['enable_disable_top_extends_stats']))
+        ret.append(self.curse_add_line(self.view_data['show_hide_top_menu']))
         ret.append(self.curse_new_line())
         ret.append(self.curse_add_line(self.view_data['enable_disable_short_processname']))
+        ret.append(self.curse_new_line())
+        ret.append(self.curse_add_line(self.view_data['enable_disable_irix']))
+        ret.append(self.curse_add_line(self.view_data['quit']))
         ret.append(self.curse_new_line())
 
         ret.append(self.curse_new_line())

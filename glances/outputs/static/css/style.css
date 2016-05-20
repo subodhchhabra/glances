@@ -36,6 +36,9 @@ body {
     font-weight: bold;
     color: white;
 }
+.sortable {
+    cursor: pointer;
+}
 .text-right {
     text-align: right;
 }
@@ -54,60 +57,83 @@ body {
 }
 .highlight {
     font-weight: bold;
-    color: magenta;
+    color: #5D4062;
 }
-.ok {
-    color: green;
-}
-.filter {
-    color: cyan;
+.ok, .status, .process {
+    color: #3E7B04;
+    font-weight: bold;
 }
 .ok_log {
-    background-color: green;
+    background-color: #3E7B04;
     color: white;
+    font-weight: bold;
 }
 .careful {
-    color: blueviolet;
+    color: #295183;
+    font-weight: bold;
 }
 .careful_log {
-    background-color: blueviolet;
+    background-color: #295183;
     color: white;
+    font-weight: bold;
 }
-.warning {
-    color: magenta;
+.warning, .nice {
+    color: #5D4062;
+    font-weight: bold;
 }
 .warning_log {
-    background-color: magenta;
+    background-color: #5D4062;
     color: white;
+    font-weight: bold;
 }
 .critical {
-    color: red;
+    color: #A30000;
+    font-weight: bold;
 }
 .critical_log {
-    background-color: red;
+    background-color: #A30000;
     color: white;
-}
-.nice {
-    color: magenta;
-}
-.status {
-    color: green;
-}
-.process {
-    color: green;
+    font-weight: bold;
 }
 
 /* Plugins */
-#processlist .table-cell, #containers .table-cell {
+#processlist .table-cell {
     padding: 0px 5px 0px 5px;
     white-space: nowrap;
 }
-gl-monitor-list {
-    display: block;
+#containers .table-cell {
+    padding: 0px 10px 0px 10px;
+    white-space: nowrap;
 }
-gl-monitor-list .table-cell {
-    text-align: left;
+
+#quicklook .progress {
+    margin-bottom: 0px;
+    min-width: 100px;
+    background-color: #000;
+    height: 12px;
+    border-radius: 0px;
+    text-align: right;
 }
+#quicklook .progress-bar-ok {
+    background-color: #3E7B04;
+}
+#quicklook .progress-bar-careful {
+    background-color: #295183;
+}
+#quicklook .progress-bar-warning {
+    background-color: #5D4062;
+}
+#quicklook .progress-bar-critical {
+    background-color: #A30000;
+}
+#monitor .process-result {
+    max-width: 300px;
+    overflow: hidden;
+    white-space: nowrap;
+    padding-left: 10px;
+    text-overflow: ellipsis;
+}
+
 /* Loading page */
 
 #loading-page .glances-logo {

@@ -16,31 +16,32 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 
 """Init the Glances software."""
 
-__appname__ = 'glances'
-__version__ = '2.4.2'
-__author__ = 'Nicolas Hennion <nicolas@nicolargo.com>'
-__license__ = 'LGPL'
-
-# Import system lib
 import locale
 import platform
 import signal
 import sys
 
+# Global name
+__appname__ = 'glances'
+__version__ = '2.6.2'
+__author__ = 'Nicolas Hennion <nicolas@nicolargo.com>'
+__license__ = 'LGPL'
+
 # Import psutil
 try:
-    from psutil import __version__ as __psutil_version
+    from psutil import __version__ as psutil_version
 except ImportError:
     print('PSutil library not found. Glances cannot start.')
     sys.exit(1)
 
 # Import Glances libs
 # Note: others Glances libs will be imported optionally
-from glances.core.glances_logging import logger
-from glances.core.glances_main import GlancesMain
+from glances.logger import logger
+from glances.main import GlancesMain
 
 try:
     locale.setlocale(locale.LC_ALL, '')
@@ -52,10 +53,17 @@ if sys.version_info < (2, 6) or (3, 0) <= sys.version_info < (3, 3):
     print('Glances requires at least Python 2.6 or 3.3 to run.')
     sys.exit(1)
 
+if sys.version_info[:2] == (2, 6):
+    import warnings
+    warnings.warn('Python 2.6 support will be dropped. Please switch '
+                  'to at least Python 2.7 or 3.3+ as soon as possible. '
+                  'See http://www.snarky.ca/stop-using-python-2-6 '
+                  'for more information.')
+
 # Check PSutil version
 psutil_min_version = (2, 0, 0)
-psutil_version = tuple([int(num) for num in __psutil_version.split('.')])
-if psutil_version < psutil_min_version:
+psutil_version_info = tuple([int(num) for num in psutil_version.split('.')])
+if psutil_version_info < psutil_min_version:
     print('PSutil 2.0 or higher is needed. Glances cannot start.')
     sys.exit(1)
 
@@ -99,7 +107,7 @@ def main():
     logger.info('{0} {1} and PSutil {2} detected'.format(
         platform.python_implementation(),
         platform.python_version(),
-        __psutil_version))
+        psutil_version))
 
     # Share global var
     global core, standalone, client, server, webserver
@@ -115,7 +123,7 @@ def main():
         logger.info("Start standalone mode")
 
         # Import the Glances standalone module
-        from glances.core.glances_standalone import GlancesStandalone
+        from glances.standalone import GlancesStandalone
 
         # Init the standalone mode
         standalone = GlancesStandalone(config=core.get_config(),
@@ -129,7 +137,7 @@ def main():
             logger.info("Start client mode (browser)")
 
             # Import the Glances client browser module
-            from glances.core.glances_client_browser import GlancesClientBrowser
+            from glances.client_browser import GlancesClientBrowser
 
             # Init the client
             client = GlancesClientBrowser(config=core.get_config(),
@@ -139,7 +147,7 @@ def main():
             logger.info("Start client mode")
 
             # Import the Glances client module
-            from glances.core.glances_client import GlancesClient
+            from glances.client import GlancesClient
 
             # Init the client
             client = GlancesClient(config=core.get_config(),
@@ -160,7 +168,7 @@ def main():
         logger.info("Start server mode")
 
         # Import the Glances server module
-        from glances.core.glances_server import GlancesServer
+        from glances.server import GlancesServer
 
         args = core.get_args()
 
@@ -183,7 +191,7 @@ def main():
         logger.info("Start web server mode")
 
         # Import the Glances web server module
-        from glances.core.glances_webserver import GlancesWebServer
+        from glances.webserver import GlancesWebServer
 
         # Init the web server mode
         webserver = GlancesWebServer(config=core.get_config(),

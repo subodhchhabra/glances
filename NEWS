@@ -1,6 +1,133 @@
 ==============================================================================
-Glances Version 2.x
+Glances Version 2
 ==============================================================================
+
+Version 2.6.2
+=============
+
+Bugs corrected:
+
+    *  Crash with Docker 1.11 (issue #848)
+
+Version 2.6.1
+=============
+
+Enhancements and new features:
+
+    * Add a connector to Riemann (issue #822 by Greogo Nagy)
+
+Bugs corrected:
+
+    * Browsing for servers which are in the [serverlist] is broken (issue #819)
+    * [WebUI] Glances will not get past loading screen (issue #815) opened 9 days ago
+    * Python error after upgrading from 2.5.1 to 2.6 bug (issue #813)
+
+Version 2.6
+===========
+
+Deprecations:
+
+    * Add deprecation warning for Python 2.6.
+      Python 2.6 support will be dropped in future releases.
+      Please switch to at least Python 2.7 or 3.3+ as soon as possible.
+      See http://www.snarky.ca/stop-using-python-2-6 for more information.
+
+Enhancements and new features:
+
+    * Add a connector to ElasticSearch (welcome to Kibana dashboard) (issue #311)
+    * New folders' monitoring plugins (issue #721)
+    * Use wildcard (regexp) to the hide configuration option for network, diskio and fs sections (issue #799 )
+    * Command line arguments are now take into account in the WebUI (#789 by  @notFloran)
+    * Change username for server and web server authentication (issue #693)
+    * Add an option to disable top menu (issue #766)
+    * Add IOps in the DiskIO plugin (issue #763)
+    * Add hide configuration key for FS Plugin (issue #736)
+    * Add process summary min/max stats (issue #703)
+    * Add timestamp to the CSV export module (issue #708)
+    * Add a shortcut 'E' to delete process filter (issue #699)
+    * By default, hide disk I/O ram1-** (issue #714)
+    * When Glances is starting the notifications should be delayed (issue #732)
+    * Add option (--disable-bg) to disable ANSI background colours (issue #738 by okdana)
+    * [WebUI] add "pointer" cursor for sortable columns (issue #704 by @notFloran)
+    * [WebUI] Make web page title configurable (issue #724)
+    * Do not show interface in down state (issue #765)
+    * InfluxDB > 0.9.3 needs float and not int for numerical value (issue#749 and issue#750 by nicolargo)
+
+Bugs corrected:
+
+    * Can't read sensors on a Thinkpad (issue #711)
+    * InfluxDB/OpenTSDB: tag parsing broken (issue #713)
+    * Grafana Dashboard outdated for InfluxDB 0.9.x (issue #648)
+    * '--tree' breaks process filter on Debian 8 (issue #768)
+    * Fix highlighting of process when it contains whitespaces (issue #546 by Alessio Sergi)
+    * Fix RAID support in Python 3 (issue #793 by Alessio Sergi)
+    * Use dict view objects to avoid issue (issue #758 by Alessio Sergi)
+    * System exit if Cpu not supported by the Cpuinfo lib (issue #754 by nicolargo)
+    * KeyError: 'cpucore' when exporting data to InfluxDB (issue #729) by nicolargo)
+
+Others:
+    * A new Glances docker container to monitor your Docker infrastructure is available here (issue #728): https://hub.docker.com/r/nicolargo/glances/
+    * Documentation is now generated automatically thanks to Sphinx and the Alessio Sergi patch (http://glances.readthedocs.org/en/latest/)
+
+Contributors summary:
+    * Nicolas Hennion: 112 commits
+    * Alessio Sergi: 55 commits
+    * Floran Brutel: 19 commits
+    * Nicolas Hart: 8 commits
+    * @desbma: 4 commits
+    * @dana: 2 commits
+    * Damien Martin, Raju Kadam, @georgewhewell: 1 commit
+
+Version 2.5.1
+=============
+
+Bugs corrected:
+
+    * Unable to unlock password protected servers in browser mode bug (issue #694)
+    * Correct issue when Glances is started in console on Windows OS
+    * [WebUI] when alert is ongoing hide level enhancement (issue #692)
+
+Version 2.5
+===========
+
+Enhancements and new features:
+
+    * Allow export of Docker and sensors plugins stats to InfluxDB, StatsD... (issue #600)
+    * Docker plugin shows IO and network bitrate (issue #520)
+    * Server password configuration for the browser mode (issue #500)
+    * Add support for OpenTSDB export (issue #638)
+    * Add additional stats (iowait, steal) to the perCPU plugin (issue #672)
+    * Support Fahrenheit unit in the sensor plugin using the --fahrenheit command line option (issue #620)
+    * When a process filter is set, display sum of CPU, MEM... (issue #681)
+    * Improve the QuickLookplugin by adding hardware CPU info (issue #673)
+    * WebUI display a message if server is not available (issue #564)
+    * Display an error if export is not used in the standalone/client mode (issue #614)
+    * New --disable-quicklook, --disable-cpu, --disable-mem, --disable-swap, --disable-load tags (issue #631)
+    * Complete refactoring of the WebUI thanks to the (awesome) Floran pull (issue #656)
+    * Network cumulative /combination feature available in the WebUI (issue #552)
+    * IRIX mode off implementation (issue#628)
+    * Short process name displays arguments (issue #609)
+    * Server password configuration for the browser mode (issue #500)
+    * Display an error if export is not used in the standalone/client mode (issue #614)
+
+Bugs corrected:
+
+    * The WebUI displays bad sensors stats (issue #632)
+    * Filter processes crashs with a bad regular expression pattern (issue #665)
+    * Error with IP plugin (issue #651)
+    * Crach with Docker plugin (issue #649)
+    * Docker plugin crashs with webserver mode (issue #654)
+    * Infrequently crashing due to assert (issue #623)
+    * Value for free disk space is counterintuative on ext file systems (issue #644)
+    * Try/catch for unexpected psutil.NoSuchProcess: process no longer exists (issue #432)
+    * Fatal error using Python 3.4 and Docker plugin bug (issue #602)
+    * Add missing new line before g man option (issue #595)
+    * Remove unnecessary type="text/css" for link (HTML5) (issue #595)
+    * Correct server mode issue when no network interface is available (issue #528)
+    * Avoid crach on olds kernels (issue #554)
+    * Avoid crashing if LC_ALL is not defined by user (issue #517)
+    * Add a disable HDD temperature option on the command line (issue #515)
+
 
 Version 2.4.2
 =============
@@ -45,7 +172,7 @@ Enhancements and new features:
     * Grab FAN speed in the Glances sensors plugin (issue #501)
     * Allow logical mounts points in the FS plugin (issue #448)
     * Add a --disable-hddtemp to disable HDD temperature module at startup (issue #515)
-    * Increase alert minimal delay to 6 seconds (issue #522) 
+    * Increase alert minimal delay to 6 seconds (issue #522)
     * If the Curses application raises an exception, restore the terminal correctly (issue #537)
 
 Bugs corrected:
@@ -63,7 +190,7 @@ Version 2.3
 
 Enhancements and new features:
 
-    * Add the Docker plugin (issue #440) with per container CPU and memory monitoring (issue #490) 
+    * Add the Docker plugin (issue #440) with per container CPU and memory monitoring (issue #490)
     * Add the RAID plugin (issue #447)
     * Add actions on alerts (issue #132). It is now possible to run action (command line) by triggers. Action could contain {{tag}} (Mustache) with stat value.
     * Add InfluxDB export module (--export-influxdb) (issue #455)
@@ -77,10 +204,10 @@ Enhancements and new features:
 
 Bugs corrected:
 
-    *  R/W error with the glances.log file (issue #474) 
+    *  R/W error with the glances.log file (issue #474)
 
 Other enhancement:
-    
+
     * Alert < 3 seconds are no longer displayed
 
 Version 2.2.1
@@ -88,7 +215,7 @@ Version 2.2.1
 
     * Fix incorrect kernel thread detection with --hide-kernel-threads (issue #457)
     * Handle IOError exception if no /etc/os-release to use Glances on Synology DSM (issue #458)
-    * Check issue error in client/server mode (issue #459) 
+    * Check issue error in client/server mode (issue #459)
 
 Version 2.2
 ===========
@@ -145,11 +272,11 @@ Version 2.1
       or by pressing the ENTER key in the curse interface.
       For the moment, process filter feature is only available in standalone mode.
     * Add extended processes informations for top process
-      Top process stats availables: CPU affinity, extended memory information (shared, text, lib, datat, dirty, swap), open threads/files and TCP/UDP network sessions, IO nice level 
+      Top process stats availables: CPU affinity, extended memory information (shared, text, lib, datat, dirty, swap), open threads/files and TCP/UDP network sessions, IO nice level
       For the moment, extended processes stats are only available in standalone mode.
     * Add --process-short-name tag and '/' key to switch between short/command line
     * Create a max_processes key in the configuration file
-      The goal is to reduce the number of displayed processes in the curses UI and 
+      The goal is to reduce the number of displayed processes in the curses UI and
       so limit the CPU footprint of the Glances standalone mode.
       The API always return all the processes, the key is only active in the curses UI.
       If the key is not define, all the processes will be displayed.
@@ -176,7 +303,7 @@ Bugs corrected:
     * Quitting glances leaves a column layout to the current terminal (issue #392)
     * Glances crashes with malformed UTF-8 sequences in process command lines (issue #391)
     * SNMP fallback mode is not Python 3 compliant (issue #386)
-    * Trouble using batinfo, hddtemp, pysensors w/ Python (issue #324) 
+    * Trouble using batinfo, hddtemp, pysensors w/ Python (issue #324)
 
 
 Version 2.0.1
@@ -192,7 +319,7 @@ Bugs corrected:
     * The sda2 partition is not seen by glances (#376)
     * Client crash if server is ended during XML request (#375)
     * Error with the Sensors module on Debian/Ubuntu (#373)
-    * Windows don't view all processes (#319) 
+    * Windows don't view all processes (#319)
 
 Version 2.0
 ===========
@@ -251,7 +378,7 @@ Version 2.0
 
 
 ==============================================================================
-Glances Version 1.x
+Glances Version 1
 ==============================================================================
 
 Version 1.7.7

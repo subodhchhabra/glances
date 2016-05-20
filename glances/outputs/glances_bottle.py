@@ -22,12 +22,13 @@
 import json
 import os
 import sys
+import tempfile
+from io import open
 
-from glances.core.glances_globals import is_windows
-from glances.core.glances_logging import logger
+from glances.logger import logger
 
 try:
-    from bottle import Bottle, static_file, abort, response, request
+    from bottle import Bottle, static_file, abort, response, request, auth_basic
 except ImportError:
     logger.critical('Bottle module not found. Glances cannot start in web server mode.')
     sys.exit(2)
@@ -49,16 +50,28 @@ class GlancesBottle(object):
         self._app = Bottle()
         # Enable CORS (issue #479)
         self._app.install(EnableCors())
+        # Password
+        if args.password != '':
+            self._app.install(auth_basic(self.check_auth))
         # Define routes
         self._route()
 
         # Path where the statics files are stored
         self.STATIC_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'static')
 
+    def check_auth(self, username, password):
+        """Check if a username/password combination is valid."""
+        if username == self.args.username:
+            from glances.password import GlancesPassword
+            pwd = GlancesPassword()
+            return pwd.check_password(self.args.password, pwd.sha256_hash(password))
+        else:
+            return False
+
     def _route(self):
         """Define route."""
         self._app.route('/', method="GET", callback=self._index)
-        self._app.route('/<refresh_time:int>', method=["GET", "POST"], callback=self._index)
+        self._app.route('/<refresh_time:int>', method=["GET"], callback=self._index)
 
         self._app.route('/<filename:re:.*\.css>', method="GET", callback=self._css)
         self._app.route('/<filename:re:.*\.js>', method="GET", callback=self._js)
@@ -69,6 +82,8 @@ class GlancesBottle(object):
         self._app.route('/favicon.ico', method="GET", callback=self._favicon)
 
         # REST API
+        self._app.route('/api/2/args', method="GET", callback=self._api_args)
+        self._app.route('/api/2/args/:item', method="GET", callback=self._api_args_item)
         self._app.route('/api/2/help', method="GET", callback=self._api_help)
         self._app.route('/api/2/pluginslist', method="GET", callback=self._api_plugins)
         self._app.route('/api/2/all', method="GET", callback=self._api_all)
@@ -100,10 +115,6 @@ class GlancesBottle(object):
 
     def _index(self, refresh_time=None):
         """Bottle callback for index.html (/) file."""
-        # Manage parameter
-        if refresh_time is None:
-            refresh_time = self.args.time
-
         # Update the stat
         self.stats.update()
 
@@ -201,24 +212,23 @@ class GlancesBottle(object):
         """
         response.content_type = 'application/json'
 
-        if not self.args.debug:
-            # Update the stat
-            self.stats.update()
-
+        if self.args.debug:
+            fname = os.path.join(tempfile.gettempdir(), 'glances-debug.json')
             try:
-                # Get the JSON value of the stat ID
-                statval = json.dumps(self.stats.getAllAsDict())
-            except Exception as e:
-                abort(404, "Cannot get stats (%s)" % str(e))
-            return statval
-        else:
-            path = "~/glances/"
-            if is_windows:
-                path = "D:\\glances\\"
-            filepath = path + "debug.json"
+                with open(fname) as f:
+                    return f.read()
+            except IOError:
+                logger.debug("Debug file (%s) not found" % fname)
 
-            f = open(filepath)
-            return f.read()
+        # Update the stat
+        self.stats.update()
+
+        try:
+            # Get the JSON value of the stat ID
+            statval = json.dumps(self.stats.getAllAsDict())
+        except Exception as e:
+            abort(404, "Cannot get stats (%s)" % str(e))
+        return statval
 
     def _api_all_limits(self):
         """Glances API RESTFul implementation.
@@ -323,6 +333,29 @@ class GlancesBottle(object):
             abort(404, "Cannot get views for plugin %s (%s)" % (plugin, str(e)))
         return ret
 
+    def _api_itemvalue(self, plugin, item, value=None):
+        """ Father method for _api_item and _api_value"""
+        response.content_type = 'application/json'
+
+        if plugin not in self.plugins_list:
+            abort(400, "Unknown plugin %s (available plugins: %s)" % (plugin, self.plugins_list))
+
+        # Update the stat
+        self.stats.update()
+
+        if value is None:
+            ret = self.stats.get_plugin(plugin).get_stats_item(item)
+
+            if ret is None:
+                abort(404, "Cannot get item %s in plugin %s" % (item, plugin))
+        else:
+            ret = self.stats.get_plugin(plugin).get_stats_value(item, value)
+
+            if ret is None:
+                abort(404, "Cannot get item(%s)=value(%s) in plugin %s" % (item, value, plugin))
+
+        return ret
+
     def _api_item(self, plugin, item):
         """Glances API RESTFul implementation.
 
@@ -332,20 +365,7 @@ class GlancesBottle(object):
         HTTP/404 if others error
 
         """
-        response.content_type = 'application/json'
-
-        if plugin not in self.plugins_list:
-            abort(400, "Unknown plugin %s (available plugins: %s)" % (plugin, self.plugins_list))
-
-        # Update the stat
-        self.stats.update()
-
-        plist = self.stats.get_plugin(plugin).get_stats_item(item)
-
-        if plist is None:
-            abort(404, "Cannot get item %s in plugin %s" % (item, plugin))
-        else:
-            return plist
+        return self._api_itemvalue(plugin, item)
 
     def _api_value(self, plugin, item, value):
         """Glances API RESTFul implementation.
@@ -355,20 +375,47 @@ class GlancesBottle(object):
         HTTP/400 if plugin is not found
         HTTP/404 if others error
         """
+        return self._api_itemvalue(plugin, item, value)
+
+    def _api_args(self):
+        """Glances API RESTFul implementation.
+
+        Return the JSON representation of the Glances command line arguments
+        HTTP/200 if OK
+        HTTP/404 if others error
+        """
         response.content_type = 'application/json'
 
-        if plugin not in self.plugins_list:
-            abort(400, "Unknown plugin %s (available plugins: %s)" % (plugin, self.plugins_list))
+        try:
+            # Get the JSON value of the args' dict
+            # Use vars to convert namespace to dict
+            # Source: https://docs.python.org/2/library/functions.html#vars
+            args_json = json.dumps(vars(self.args))
+        except Exception as e:
+            abort(404, "Cannot get args (%s)" % str(e))
+        return args_json
 
-        # Update the stat
-        self.stats.update()
+    def _api_args_item(self, item):
+        """Glances API RESTFul implementation.
 
-        pdict = self.stats.get_plugin(plugin).get_stats_value(item, value)
+        Return the JSON representation of the Glances command line arguments item
+        HTTP/200 if OK
+        HTTP/400 if item is not found
+        HTTP/404 if others error
+        """
+        response.content_type = 'application/json'
 
-        if pdict is None:
-            abort(404, "Cannot get item(%s)=value(%s) in plugin %s" % (item, value, plugin))
-        else:
-            return pdict
+        if item not in self.args:
+            abort(400, "Unknown item %s" % item)
+
+        try:
+            # Get the JSON value of the args' dict
+            # Use vars to convert namespace to dict
+            # Source: https://docs.python.org/2/library/functions.html#vars
+            args_json = json.dumps(vars(self.args)[item])
+        except Exception as e:
+            abort(404, "Cannot get args item (%s)" % str(e))
+        return args_json
 
 
 class EnableCors(object):

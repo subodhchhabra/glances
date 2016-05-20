@@ -26,18 +26,18 @@ try:
 except ImportError:
     pass
 
-# Import Glances lib
-from glances.core.glances_globals import is_py3
-from glances.core.glances_logging import logger
+from glances.logger import logger
 from glances.plugins.glances_batpercent import Plugin as BatPercentPlugin
 from glances.plugins.glances_hddtemp import Plugin as HddTempPlugin
 from glances.plugins.glances_plugin import GlancesPlugin
 
-if is_py3:
-    SENSOR_TEMP_UNIT = '°C'
-else:
-    SENSOR_TEMP_UNIT = '°C '
-SENSOR_FAN_UNIT = 'RPM'
+SENSOR_TEMP_UNIT = 'C'
+SENSOR_FAN_UNIT = 'rpm'
+
+
+def to_fahrenheit(celsius):
+    """Convert Celsius to Fahrenheit."""
+    return celsius * 1.8 + 32
 
 
 class Plugin(GlancesPlugin):
@@ -51,7 +51,7 @@ class Plugin(GlancesPlugin):
 
     def __init__(self, args=None):
         """Init the plugin."""
-        GlancesPlugin.__init__(self, args=args)
+        super(Plugin, self).__init__(args=args)
 
         # Init the sensor class
         self.glancesgrabsensors = GlancesGrabSensors()
@@ -146,13 +146,17 @@ class Plugin(GlancesPlugin):
         - Battery capacity: 'battery'
         """
         for i in stats:
+            # Set the sensors type
             i.update({'type': sensor_type})
+            # also add the key name
+            i.update({'key': self.get_key()})
+
         return stats
 
     def update_views(self):
         """Update stats views."""
         # Call the father's method
-        GlancesPlugin.update_views(self)
+        super(Plugin, self).update_views()
 
         # Add specifics informations
         # Alert
@@ -179,23 +183,33 @@ class Plugin(GlancesPlugin):
         ret.append(self.curse_add_line(msg, "TITLE"))
 
         for i in self.stats:
-            if i['value']:
+            if i['value'] != b'ERR':
                 # New line
                 ret.append(self.curse_new_line())
                 # Alias for the lable name ?
                 label = self.has_alias(i['label'].lower())
                 if label is None:
                     label = i['label']
-                try:
-                    msg = "{0:12} {1:3}".format(label[:11], i['unit'])
-                except (KeyError, UnicodeEncodeError):
-                    msg = "{0:16}".format(label[:15])
+                if i['type'] != 'fan_speed':
+                    msg = '{0:15}'.format(label[:15])
+                else:
+                    msg = '{0:13}'.format(label[:13])
                 ret.append(self.curse_add_line(msg))
-                msg = '{0:>7}'.format(i['value'])
-                ret.append(self.curse_add_line(
-                    msg, self.get_views(item=i[self.get_key()],
-                                        key='value',
-                                        option='decoration')))
+                if (args.fahrenheit and i['type'] != 'battery' and
+                        i['type'] != 'fan_speed'):
+                    value = to_fahrenheit(i['value'])
+                    unit = 'F'
+                else:
+                    value = i['value']
+                    unit = i['unit']
+                try:
+                    msg = '{0:>7.0f}{1}'.format(value, unit)
+                    ret.append(self.curse_add_line(
+                        msg, self.get_views(item=i[self.get_key()],
+                                            key='value',
+                                            option='decoration')))
+                except (TypeError, ValueError):
+                    pass
 
         return ret
 
@@ -236,9 +250,13 @@ class GlancesGrabSensors(object):
                         # Fan speed sensor
                         sensors_current['unit'] = SENSOR_FAN_UNIT
                     if sensors_current:
-                        sensors_current['label'] = feature.label
-                        sensors_current['value'] = int(feature.get_value())
-                        self.sensors_list.append(sensors_current)
+                        try:
+                            sensors_current['label'] = feature.label
+                            sensors_current['value'] = int(feature.get_value())
+                        except SensorsError as e:
+                            logger.debug("Cannot grab sensor stat(%s)" % e)
+                        else:
+                            self.sensors_list.append(sensors_current)
 
         return self.sensors_list
 

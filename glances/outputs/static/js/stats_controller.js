@@ -1,15 +1,14 @@
-glancesApp.controller('statsController', function($scope, $http, $interval, $q, $routeParams, $filter) {
+glancesApp.controller('statsController', function ($scope, $rootScope, $interval, GlancesStats, help, arguments) {
+    $scope.help = help;
+    $scope.arguments = arguments;
 
-    $scope.limitSuffix = ['critical', 'careful', 'warning'];
-    $scope.refreshTime = 3;
-    $scope.pluginLimits = [];
     $scope.sorter = {
         column: "cpu_percent",
         auto: true,
-        isReverseColumn: function(column) {
+        isReverseColumn: function (column) {
             return !(column == 'username' || column == 'name');
         },
-        getColumnLabel: function(column) {
+        getColumnLabel: function (column) {
             if (_.isEqual(column, ['io_read', 'io_write'])) {
                 return 'io_counters';
             } else {
@@ -17,282 +16,162 @@ glancesApp.controller('statsController', function($scope, $http, $interval, $q, 
             }
         }
     };
-    $scope.help_screen = false;
-    $scope.show = {
-        'diskio' : true,
-        'network' : true,
-        'fs' : true,
-        'sensors' : true,
-        'sidebar' : true,
-        'alert' : true,
-        'short_process_name': true,
-        'per_cpu': false,
-        'warning_alerts':true,
-        'warning_critical_alerts':true,
-        'process_stats':true,
-        'top_extended_stats':true,
-        'docker_stats':true,
-        'network_io_combination':false,
-        'network_io_cumulative':false,
-        'filesystem_freespace':false,
-        'network_by_bytes':true
+
+    $scope.dataLoaded = false;
+    $scope.refreshData = function () {
+        GlancesStats.getData().then(function (data) {
+
+            $scope.statsAlert = GlancesStats.getPlugin('alert');
+            $scope.statsCpu = GlancesStats.getPlugin('cpu');
+            $scope.statsDiskio = GlancesStats.getPlugin('diskio');
+            $scope.statsDocker = GlancesStats.getPlugin('docker');
+            $scope.statsFs = GlancesStats.getPlugin('fs');
+            $scope.statsIp = GlancesStats.getPlugin('ip');
+            $scope.statsLoad = GlancesStats.getPlugin('load');
+            $scope.statsMem = GlancesStats.getPlugin('mem');
+            $scope.statsMemSwap = GlancesStats.getPlugin('memswap');
+            $scope.statsMonitor = GlancesStats.getPlugin('monitor');
+            $scope.statsNetwork = GlancesStats.getPlugin('network');
+            $scope.statsPerCpu = GlancesStats.getPlugin('percpu');
+            $scope.statsProcessCount = GlancesStats.getPlugin('processcount');
+            $scope.statsProcessList = GlancesStats.getPlugin('processlist');
+            $scope.statsQuicklook = GlancesStats.getPlugin('quicklook');
+            $scope.statsRaid = GlancesStats.getPlugin('raid');
+            $scope.statsSensors = GlancesStats.getPlugin('sensors');
+            $scope.statsSystem = GlancesStats.getPlugin('system');
+            $scope.statsUptime = GlancesStats.getPlugin('uptime');
+
+            $rootScope.title = $scope.statsSystem.hostname + ' - Glances';
+
+            $scope.is_disconnected = false;
+            $scope.dataLoaded = true;
+        }, function() {
+            $scope.is_disconnected = true;
+        });
     };
 
-    $scope.init_refresh_time = function() {
-        if ($routeParams != undefined && $routeParams.refresh_time != undefined) {
-            var new_refresh_time = parseInt($routeParams.refresh_time)
-            if (new_refresh_time >= 1) {
-                $scope.refreshTime = new_refresh_time
-            }
-        }
-    }
+    $scope.refreshData();
+    $interval(function () {
+        $scope.refreshData();
+    }, arguments.time * 1000); // in milliseconds
 
-    $scope.init_limits = function() {
-      $http.get('/api/2/all/limits').success(function(response, status, headers, config) {
-          $scope.pluginLimits = response
-      }).error(function(response, status, headers, config) {
-          console.log('error : ' + response+ status + headers + config);
-      });
-    }
+    $scope.onKeyDown = function ($event) {
 
-    $scope.init_help = function() {
-        $http.get('/api/2/help').success(function(response, status, headers, config) {
-            $scope.help = response
-        });
-    }
-
-    $scope.show_hide = function(bloc) {
-        if(bloc == 'help') {
-            $scope.help_screen = !$scope.help_screen
-        } else {
-            $scope.show[bloc] = !$scope.show[bloc]
-        }
-    }
-
-    var canceler = undefined;
-
-    /**
-     * Refresh all the data of the view
-     */
-    $scope.refreshData = function() {
-        canceler = $q.defer();
-        $http.get('/api/2/all', {timeout: canceler.promise}).success(function(response, status, headers, config) {
-
-            function timemillis(array) {
-                var sum = 0.0
-                for (var i = 0; i < array.length; i++) {
-                    sum += array[i] * 1000.0;
-                }
-                return sum;
-            }
-            function timedelta(input) {
-                var sum = timemillis(input);
-                var d = new Date(sum);
-
-                return {
-                  hours: d.getUTCHours(), // TODO : multiple days ( * (d.getDay() * 24)))
-                  minutes: d.getUTCMinutes(),
-                  seconds: d.getUTCSeconds(),
-                  milliseconds: parseInt("" + d.getUTCMilliseconds() / 10)
-                };
-            };
-
-            function durationBetweenTwoDates(startDate, endDate) {
-              var duration = endDate - startDate;
-              var seconds = parseInt((duration/1000)%60)
-                  , minutes = parseInt((duration/(1000*60))%60)
-                  , hours = parseInt((duration/(1000*60*60))%24);
-
-              return _.padLeft(hours,2,'0') + ":" + _.padLeft(minutes,2,'0') + ":" + _.padLeft(seconds,2,'0');
-            }
-
-            for (var i = 0; i < response['processlist'].length; i++) {
-                var process = response['processlist'][i]
-                process.memvirt = process.memory_info[1]
-                process.memres  = process.memory_info[0]
-                process.timeplus = timedelta(process.cpu_times)
-                process.timemillis = timemillis(process.cpu_times)
-
-                process.io_read = '?';
-                process.io_write = '?';
-
-                if (process.io_counters) {
-                  process.io_read  = (process.io_counters[0] - process.io_counters[2]) / process.time_since_update;
-
-                  if (process.io_read != 0) {
-                    process.io_read = $filter('bytes')(process.io_read);
-                  }
-
-                  process.io_write = (process.io_counters[1] - process.io_counters[3]) / process.time_since_update;
-
-                  if (process.io_write != 0) {
-                    process.io_write = $filter('bytes')(process.io_write);
-                  }
-                }
-            }
-            for (var i = 0; i < response['alert'].length; i++) {
-                var alert = response['alert'][i];
-                alert.begin = alert[0] * 1000;
-                alert.end = alert[1] * 1000;
-                alert.ongoing = alert[1] == -1;
-
-                if (!alert.ongoing) {
-                  alert.duration = durationBetweenTwoDates(alert.begin, alert.end);
-                }
-            }
-
-            _.remove(response['sensors'], function(sensor) {
-              return sensor.type == "battery" && _.isArray(sensor.value) && _.isEmpty(sensor.value);
-            });
-
-            $scope.is_bsd = response['system'].os_name === 'FreeBSD';
-            $scope.is_linux = response['system'].os_name === 'Linux';
-            $scope.is_mac = response['system'].os_name === 'Darwin';
-            $scope.is_windows = response['system'].os_name === 'Windows';
-
-            $scope.result = response;
-            canceler.resolve()
-        }).error(function(d, status, headers, config) {
-            console.log('error status:' + status + " - headers = " + headers);
-            canceler.resolve()
-        });
-    }
-
-    $scope.isNice = function(nice) {
-      if(nice !== undefined && (($scope.is_windows && nice != 32) || (!$scope.is_windows && nice != 0))) {
-        return true;
-      }
-
-      return false;
-    }
-
-    $scope.getAlert = function(pluginName, limitNamePrefix, current, maximum, log) {
-      current = current || 0;
-      maximum = maximum || 100;
-      log = log || false;
-      log_str = log ? '_log' : '';
-
-      var value = (current * 100) / maximum;
-
-      if ($scope.pluginLimits != undefined && $scope.pluginLimits[pluginName] != undefined) {
-          for (var i = 0; i < $scope.limitSuffix.length; i++) {
-              var limitName = limitNamePrefix + $scope.limitSuffix[i]
-              var limit = $scope.pluginLimits[pluginName][limitName]
-
-              if (value >= limit) {
-                  var pos = limitName.lastIndexOf("_")
-                  var className = limitName.substring(pos + 1)
-
-                  return className + log_str;
-              }
-          }
-      }
-
-      return "ok" + log_str;
-    }
-
-    $scope.getAlertLog = function(pluginName, limitNamePrefix, current, maximum) {
-      return $scope.getAlert(pluginName, limitNamePrefix, current, maximum, true);
-    }
-
-    $scope.init_refresh_time();
-    $scope.init_limits();
-    $scope.init_help();
-
-    var stop;
-    $scope.configure_refresh = function () {
-        if (!angular.isDefined(stop)) {
-            //$scope.refreshData();
-            stop = $interval(function() {
-                $scope.refreshData();
-            }, $scope.refreshTime * 1000); // in milliseconds
-        }
-    }
-
-    $scope.$watch(
-            function() { return $scope.refreshTime; },
-            function(newValue, oldValue) {
-                $scope.stop_refresh();
-                $scope.configure_refresh();
-            }
-    );
-
-    $scope.stop_refresh = function() {
-        if (angular.isDefined(stop)) {
-            $interval.cancel(stop);
-            stop = undefined;
+        switch (true) {
+            case !$event.shiftKey && $event.keyCode == keycodes.a:
+                // a => Sort processes automatically
+                $scope.sorter.column = "cpu_percent";
+                $scope.sorter.auto = true;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.c:
+                // c => Sort processes by CPU%
+                $scope.sorter.column = "cpu_percent";
+                $scope.sorter.auto = false;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.m:
+                // m => Sort processes by MEM%
+                $scope.sorter.column = "memory_percent";
+                $scope.sorter.auto = false;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.u:
+                // u => Sort processes by user
+                $scope.sorter.column = "username";
+                $scope.sorter.auto = false;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.p:
+                // p => Sort processes by name
+                $scope.sorter.column = "name";
+                $scope.sorter.auto = false;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.i:
+                // i => Sort processes by I/O rate
+                $scope.sorter.column = ['io_read', 'io_write'];
+                $scope.sorter.auto = false;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.t:
+                // t => Sort processes by time
+                $scope.sorter.column = "timemillis";
+                $scope.sorter.auto = false;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.d:
+                // d => Show/hide disk I/O stats
+                $scope.arguments.disable_diskio = !$scope.arguments.disable_diskio;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.f:
+                // f => Show/hide filesystem stats
+                $scope.arguments.disable_fs = !$scope.arguments.disable_fs;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.n:
+                // n => Show/hide network stats
+                $scope.arguments.disable_network = !$scope.arguments.disable_network;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.s:
+                // s => Show/hide sensors stats
+                $scope.arguments.disable_sensors = !$scope.arguments.disable_sensors;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.TWO:
+                // 2 => Show/hide left sidebar
+                $scope.arguments.disable_left_sidebar = !$scope.arguments.disable_left_sidebar;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.z:
+                // z => Enable/disable processes stats
+                $scope.arguments.disable_process = !$scope.arguments.disable_process;
+                break;
+            case $event.keyCode == keycodes.SLASH:
+                // SLASH => Enable/disable short processes name
+                $scope.arguments.process_short_name = !$scope.arguments.process_short_name;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.D:
+                // D => Enable/disable Docker stats
+                $scope.arguments.disable_docker = !$scope.arguments.disable_docker;
+                break;
+            case !$event.shiftKey && $event.keyCode == keycodes.b:
+                // b => Bytes or bits for network I/O
+                $scope.arguments.byte = !$scope.arguments.byte;
+               break;
+            case $event.shiftKey && $event.keyCode == keycodes.b:
+               // 'B' => Switch between bit/s and IO/s for Disk IO
+                $scope.arguments.diskio_iops = !$scope.arguments.diskio_iops;
+               break;
+            case !$event.shiftKey && $event.keyCode == keycodes.l:
+                // l => Show/hide alert logs
+                $scope.arguments.disable_log = !$scope.arguments.disable_log;
+               break;
+            case $event.shiftKey && $event.keyCode == keycodes.ONE:
+               // 1 => Global CPU or per-CPU stats
+               $scope.arguments.percpu = !$scope.arguments.percpu;
+               break;
+            case !$event.shiftKey && $event.keyCode == keycodes.h:
+                // h => Show/hide this help screen
+                $scope.arguments.help_tag = !$scope.arguments.help_tag;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.T:
+                // T => View network I/O as combination
+                $scope.arguments.network_sum = !$scope.arguments.network_sum;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.u:
+                // U => View cumulative network I/O
+                $scope.arguments.network_cumul = !$scope.arguments.network_cumul;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.f:
+                // F => Show filesystem free space
+                $scope.arguments.fs_free_space = !$scope.arguments.fs_free_space;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.THREE:
+                // 3 => Enable/disable quick look plugin
+                $scope.arguments.disable_quicklook = !$scope.arguments.disable_quicklook;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.FIVE:
+                $scope.arguments.disable_quicklook = !$scope.arguments.disable_quicklook;
+                $scope.arguments.disable_cpu = !$scope.arguments.disable_cpu;
+                $scope.arguments.disable_mem = !$scope.arguments.disable_mem;
+                $scope.arguments.disable_swap = !$scope.arguments.disable_swap;
+                $scope.arguments.disable_load = !$scope.arguments.disable_load;
+                break;
+            case $event.shiftKey && $event.keyCode == keycodes.i:
+                // I => Show/hide IP module
+                $scope.arguments.disable_ip = !$scope.arguments.disable_ip;
+                break;
         }
     };
-
-    $scope.$on('$destroy', function() {
-        // Make sure that the interval is destroyed too
-        $scope.stop_refresh();
-    });
-
-    $scope.onKeyDown = function($event) {
-        if ($event.keyCode == keycodes.a) { // a  Sort processes automatically
-            $scope.sorter.column = "cpu_percent";
-            $scope.sorter.auto = true;
-        } else if ($event.keyCode == keycodes.c) {//c  Sort processes by CPU%
-            $scope.sorter.column =  "cpu_percent";
-            $scope.sorter.auto = false;
-        } else if ($event.keyCode == keycodes.m) {//m  Sort processes by MEM%
-            $scope.sorter.column = "memory_percent";
-            $scope.sorter.auto = false;
-        } else if ($event.keyCode == keycodes.p) {//p  Sort processes by name
-            $scope.sorter.column = "name";
-            $scope.sorter.auto = false;
-        } else if ($event.keyCode == keycodes.i) {//i  Sort processes by I/O rate
-            $scope.sorter.column = ['io_read', 'io_write'];
-            $scope.sorter.auto = false;
-        } else if ($event.keyCode == keycodes.t) {//t  Sort processes by CPU times
-            $scope.sorter.column = "timemillis";
-            $scope.sorter.auto = false;
-        } else if ($event.keyCode == keycodes.u) {//t  Sort processes by user
-            $scope.sorter.column = "username";
-            $scope.sorter.auto = false;
-        } else if ($event.keyCode == keycodes.d) {//d  Show/hide disk I/O stats
-            $scope.show_hide('diskio')
-        } else if ($event.keyCode == keycodes.f) {//f  Show/hide filesystem stats
-            $scope.show_hide('fs')
-        } else if ($event.keyCode == keycodes.n) {//n sort_by Show/hide network stats
-            $scope.show_hide('network')
-        } else if ($event.keyCode == keycodes.s) {//s  Show/hide sensors stats
-            $scope.show_hide('sensors')
-        } else if ($event.keyCode == keycodes.TWO && $event.shiftKey) {//2  Show/hide left sidebar
-            $scope.show_hide('sidebar')
-        } else if ($event.keyCode == keycodes.z) {//z  Enable/disable processes stats
-            $scope.show_hide('process_stats')
-        } else if ($event.keyCode == keycodes.e) {//e  Enable/disable top extended stats
-            $scope.show_hide('top_extended_stats')
-        } else if ($event.keyCode == keycodes.SLASH) {// SLASH  Enable/disable short processes name
-            $scope.show_hide('short_process_name')
-        } else if ($event.keyCode == keycodes.D && $event.shiftKey) {//D  Enable/disable Docker stats
-            $scope.show_hide('docker_stats')
-        } else if ($event.keyCode == keycodes.b) {//b  Bytes or bits for network I/O
-            $scope.show_hide('network_by_bytes')
-        } else if ($event.keyCode == keycodes.l) {//l  Show/hide alert logs
-            $scope.show_hide('alert')
-        } else if ($event.keyCode == keycodes.w) {//w  Delete warning alerts
-            $scope.show_hide('warning_alerts')
-        } else if ($event.keyCode == keycodes.x) {//x  Delete warning and critical alerts
-            $scope.show_hide('warning_critical_alerts')
-        } else if ($event.keyCode == keycodes.ONE && $event.shiftKey) {//1  Global CPU or per-CPU stats
-            $scope.show_hide('per_cpu')
-        } else if ($event.keyCode == keycodes.h) {//h  Show/hide this help screen
-            $scope.show_hide('help')
-        } else if ($event.keyCode == keycodes.T && $event.shiftKey) {//T  View network I/O as combination
-            $scope.show_hide('network_io_combination')
-        } else if ($event.keyCode == keycodes.u) {//u  View cumulative network I/O
-            $scope.show_hide('network_io_cumulative')
-        } else if ($event.keyCode == keycodes.F && $event.shiftKey) {//F  Show filesystem free space
-            $scope.show_hide('filesystem_freespace')
-        } else if ($event.keyCode == keycodes.g) {//g  Generate graphs for current history
-            // not available
-        } else if ($event.keyCode == keycodes.r) {//r  Reset history
-            // not available
-        } else if ($event.keyCode == keycodes.q) {//q  Quit (Esc and Ctrl-C also work)
-            // not available
-        }
-    }
 });

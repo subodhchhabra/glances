@@ -19,16 +19,11 @@
 
 """Statsd interface class."""
 
-# Import sys libs
 import sys
 from numbers import Number
-try:
-    from configparser import NoOptionError, NoSectionError
-except ImportError:  # Python 2
-    from ConfigParser import NoOptionError, NoSectionError
 
-# Import Glances lib
-from glances.core.glances_logging import logger
+from glances.compat import NoOptionError, NoSectionError, range
+from glances.logger import logger
 from glances.exports.glances_export import GlancesExport
 
 from statsd import StatsClient
@@ -40,7 +35,7 @@ class Export(GlancesExport):
 
     def __init__(self, config=None, args=None):
         """Init the Statsd export IF."""
-        GlancesExport.__init__(self, config=config, args=args)
+        super(Export, self).__init__(config=config, args=args)
 
         # Load the InfluxDB configuration file
         self.host = None
@@ -91,7 +86,7 @@ class Export(GlancesExport):
 
     def export(self, name, columns, points):
         """Export the stats to the Statsd server."""
-        for i in range(0, len(columns)):
+        for i in range(len(columns)):
             if not isinstance(points[i], Number):
                 continue
             stat_name = '{0}.{1}'.format(name, columns[i])
@@ -100,3 +95,4 @@ class Export(GlancesExport):
                 self.client.gauge(stat_name, stat_value)
             except Exception as e:
                 logger.error("Can not export stats to Statsd (%s)" % e)
+        logger.debug("Export {0} stats to Statsd".format(name))
